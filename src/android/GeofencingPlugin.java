@@ -87,6 +87,7 @@ public class GeofencingPlugin extends CordovaPlugin {
     }
 
     private void addFence(Double latitude, Double longitude, Float radiusInMeters, Long duration, String id) {
+        duration = (duration == 0L) ? Geofence.NEVER_EXPIRE : duration;
         Geofence mGeofence = new Geofence.Builder()
                 .setRequestId(id)
                 .setCircularRegion(latitude, longitude, radiusInMeters)
