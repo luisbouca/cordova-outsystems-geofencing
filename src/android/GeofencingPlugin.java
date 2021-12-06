@@ -4,7 +4,10 @@ import android.Manifest;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.icu.text.DateFormat;
+import android.icu.util.TimeZone;
 import android.os.Build;
 
 import androidx.core.app.ActivityCompat;
@@ -19,13 +22,17 @@ import org.apache.cordova.CallbackContext;
 import org.apache.cordova.PluginResult;
 import org.json.JSONArray;
 import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.util.Date;
 
 /**
  * This class echoes a string called from JavaScript.
  */
 public class GeofencingPlugin extends CordovaPlugin {
 
-    private String TAG = "Geofencing Plugin";
+    private final String TAG = "GeofencePluginService";
+    private final String sharedPreferencesDB = "com.luisbouca.test.geofence";
     private GeofencingClient mGeofencingClient;
     private PendingIntent mGeofencePendingIntent = null;
     private Context mContext;
@@ -43,7 +50,7 @@ public class GeofencingPlugin extends CordovaPlugin {
     public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
         switch (action) {
             case "registerFence":
-                addFence(args.getDouble(0), args.getDouble(1), (float) args.getDouble(2), args.getLong(3), args.getString(4));
+                addFence(args.getDouble(0), args.getDouble(1), (float) args.getDouble(2), args.getLong(3), args.getString(4),args.getString(5));
                 callbackContext.success();
                 return true;
             case "removeFences":
@@ -66,6 +73,15 @@ public class GeofencingPlugin extends CordovaPlugin {
                     cordova.requestPermissions(this, permissionsRequestCode, new String[]{Manifest.permission.ACCESS_FINE_LOCATION});
                 }
                 return true;
+            case "setup":
+                SharedPreferences preferences = cordova.getActivity().getApplicationContext().getSharedPreferences(sharedPreferencesDB,Context.MODE_PRIVATE);
+                SharedPreferences.Editor preferencesEditor = preferences.edit();
+                preferencesEditor.putString("Url",args.getString(0));
+                preferencesEditor.putString("AppId",args.getString(1));
+                preferencesEditor.putString("Key", args.getString(2));
+                preferencesEditor.apply();
+                callbackContext.success();
+                return true;
             default:
                 callbackContext.error("Action not mapped in plugin!");
                 return false;
@@ -86,8 +102,8 @@ public class GeofencingPlugin extends CordovaPlugin {
         }
     }
 
-    private void addFence(Double latitude, Double longitude, Float radiusInMeters, Long duration, String id) {
-        duration = (duration == 0L) ? Geofence.NEVER_EXPIRE : duration;
+    private void addFence(Double latitude, Double longitude, Float radiusInMeters, Long duration, String id,String policyNumber) {
+        duration = (duration == 0L)? Geofence.NEVER_EXPIRE : duration;
         Geofence mGeofence = new Geofence.Builder()
                 .setRequestId(id)
                 .setCircularRegion(latitude, longitude, radiusInMeters)
@@ -107,6 +123,18 @@ public class GeofencingPlugin extends CordovaPlugin {
             // to handle the case where the user grants the permission. See the documentation
             // for ActivityCompat#requestPermissions for more details.
             return;
+        }
+        SharedPreferences preferences = cordova.getActivity().getApplicationContext().getSharedPreferences(sharedPreferencesDB,Context.MODE_PRIVATE);
+        SharedPreferences.Editor preferencesEditor = preferences.edit();
+        try {
+            JSONObject newFence = new JSONObject();
+            newFence.put("MasterPolicyNumber", policyNumber);
+            newFence.put("Latitude", latitude);
+            newFence.put("Longitude", longitude);
+            preferencesEditor.putString(id, newFence.toString());
+            preferencesEditor.apply();
+        }catch (JSONException e){
+            e.printStackTrace();
         }
         mGeofencingClient.addGeofences(geofenceRequest, getGeofencePendingIntent());
     }
