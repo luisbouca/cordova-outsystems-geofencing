@@ -1,0 +1,19 @@
+{
+  "name": "com-outsystems-geofencing",
+  "version": "1.0.0",
+  "description": "",
+  "cordova": {
+    "id": "com-outsystems-geofencing",
+    "platforms": [
+        "android",
+        "ios"
+    ]
+  },
+  "keywords": [
+    "ecosystem:cordova",
+    "geofencing",
+    "outsystems"
+  ],
+  "author": "Outsystems",
+  "license": "ISC"
+}

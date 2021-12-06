@@ -1,0 +1,57 @@
+<?xml version='1.0' encoding='utf-8'?>
+<plugin id="com-outsystems-geofencing" version="1.0.0" xmlns="http://apache.org/cordova/ns/plugins/1.0" xmlns:android="http://schemas.android.com/apk/res/android">
+    <name>Geofencing</name>
+
+    <js-module name="Geofencing" src="www/Geofencing.js">
+        <clobbers target="Geofence" />
+    </js-module>
+
+    <platform name="android">
+
+        <config-file parent="/*" target="res/xml/config.xml">
+            <feature name="Geofencing">
+                <param name="android-package" value="com.outsystems.geofencing.GeofencingPlugin" />
+            </feature>
+        </config-file>
+
+        <config-file target="AndroidManifest.xml" parent="/*">
+            <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+            <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+            <uses-feature android:name="android.hardware.location.gps" android:required="true" />
+        </config-file>
+
+        <config-file target="AndroidManifest.xml" parent="/manifest/application">
+            <receiver
+                android:name="com.outsystems.geofencing.GeofenceReceiver"
+                android:enabled="true"
+                android:exported="true" />
+
+            <service
+                android:name="com.outsystems.geofencing.GeofenceTransitionsJobIntentService"
+                android:exported="true"
+                android:permission="android.permission.BIND_JOB_SERVICE" />
+        </config-file>
+
+        <framework src="com.squareup.okhttp3:okhttp:4.9.0"/>
+        <framework src="com.google.android.gms:play-services-maps:18.0.0"/>
+        <framework src="com.google.android.gms:play-services-location:18.0.0"/>
+
+        <source-file src="src/android/GeofencingPlugin.java" target-dir="src/com/outsystems/geofencing" />
+        <source-file src="src/android/GeofenceReceiver.java" target-dir="src/com/outsystems/geofencing" />
+        <source-file src="src/android/GeofenceTransitionsJobIntentService.java" target-dir="src/com/outsystems/geofencing" />
+
+        <hook type="after_plugin_install" src="hooks/android/replaceBundleId.js" />
+
+    </platform>
+    <platform name="ios">
+
+        <config-file parent="/*" target="config.xml">
+            <feature name="Geofencing">
+                <param name="ios-package" value="Geofencing" />
+            </feature>
+        </config-file>
+
+        <source-file src="src/ios/Geofencing.swift" />
+
+    </platform>
+</plugin>
