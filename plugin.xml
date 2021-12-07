@@ -46,7 +46,7 @@
         <hook type="after_plugin_install" src="hooks/android/replaceBundleId.js" />
 
     </platform>
-    <platform name="ios">
+    <!--platform name="ios">
 
         <config-file parent="/*" target="config.xml">
             <feature name="Geofencing">
@@ -56,5 +56,5 @@
 
         <source-file src="src/ios/Geofencing.swift" />
 
-    </platform>
+    </platform-->
 </plugin>
