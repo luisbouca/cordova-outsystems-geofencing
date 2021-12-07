@@ -134,8 +134,6 @@ public class GeofencingPlugin extends CordovaPlugin {
         try {
             JSONObject newFence = new JSONObject();
             newFence.put("MasterPolicyNumber", policyNumber);
-            newFence.put("Latitude", latitude);
-            newFence.put("Longitude", longitude);
             preferencesEditor.putString(id, newFence.toString());
             preferencesEditor.apply();
         }catch (JSONException e){

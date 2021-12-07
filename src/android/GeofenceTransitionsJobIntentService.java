@@ -82,6 +82,9 @@ public class GeofenceTransitionsJobIntentService extends JobIntentService {
                     if (geofenceTransition == Geofence.GEOFENCE_TRANSITION_EXIT) {
                         action = 1;
                     }
+                    fence.put("Latitude", geofencingEvent.getTriggeringLocation().getLatitude());
+                    fence.put("Longitude", geofencingEvent.getTriggeringLocation().getLongitude());
+                    
                     registerRequest(fence, geofence.getRequestId(), action);
                 }
             }catch (JSONException e){
