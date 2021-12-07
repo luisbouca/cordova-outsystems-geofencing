@@ -63,15 +63,13 @@ public class GeofencingPlugin extends CordovaPlugin {
                     hasAllPermissions = cordova.hasPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION);
                 }
                 hasAllPermissions = hasAllPermissions && cordova.hasPermission(Manifest.permission.ACCESS_FINE_LOCATION);
+                hasAllPermissions = hasAllPermissions && cordova.hasPermission(Manifest.permission.ACCESS_COARSE_LOCATION);
                 callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK, hasAllPermissions));
                 return true;
             case "requestPermission":
                 mCallback = callbackContext;
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    cordova.requestPermissions(this, permissionsRequestCode, new String[]{Manifest.permission.ACCESS_BACKGROUND_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION});
-                } else {
-                    cordova.requestPermissions(this, permissionsRequestCode, new String[]{Manifest.permission.ACCESS_FINE_LOCATION});
-                }
+
+                cordova.requestPermissions(this, permissionsRequestCode, new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION});
                 return true;
             case "setup":
                 SharedPreferences preferences = cordova.getActivity().getApplicationContext().getSharedPreferences(sharedPreferencesDB,Context.MODE_PRIVATE);
@@ -93,8 +91,15 @@ public class GeofencingPlugin extends CordovaPlugin {
         super.onRequestPermissionResult(requestCode, permissions, grantResults);
         if (mCallback != null) {
             if (requestCode == permissionsRequestCode) {
+                mGeofencingClient = LocationServices.getGeofencingClient(mContext);
                 Boolean permissionsGranted = true;
                 for (String permission : permissions) {
+                    if (cordova.hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)||cordova.hasPermission(Manifest.permission.ACCESS_COARSE_LOCATION)){
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            cordova.requestPermission(this,permissionsRequestCode,Manifest.permission.ACCESS_BACKGROUND_LOCATION);
+                            return;
+                        }
+                    }
                     permissionsGranted = permissionsGranted && cordova.hasPermission(permission);
                 }
                 mCallback.sendPluginResult(new PluginResult(PluginResult.Status.OK, permissionsGranted));
