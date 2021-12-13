@@ -45,7 +45,7 @@
         <hook type="after_plugin_install" src="hooks/android/replaceBundleId.js" />
 
     </platform>
-    <!--platform name="ios">
+    <platform name="ios">
 
         <config-file parent="/*" target="config.xml">
             <feature name="Geofencing">
@@ -53,7 +53,34 @@
             </feature>
         </config-file>
 
+        <preference name="LocationUsageDescriptioniOS" default="This app needs access to the location services."/>
+        <config-file target="*-Info.plist" parent="NSLocationAlwaysUsageDescription">
+            <string>This app needs access to the location services.</string>
+        </config-file>
+        <config-file target="*-Info.plist" parent="NSLocationWhenInUseUsageDescription">
+            <string>This app needs access to the location services.</string>
+        </config-file>
+        <config-file target="*-Info.plist" parent="NSLocationAlwaysAndWhenInUseUsageDescription">
+            <string>This app needs access to the location services.</string>
+        </config-file>
+        <config-file target="*-Info.plist" parent="NSLocationUsageDescription">
+            <string>This app needs access to the location services.</string>
+        </config-file>
+
+        <config-file target="*-Info.plist" parent="UIBackgroundModes">
+            <array>
+                <string>location</string>
+            </array>
+        </config-file>
+
+        <dependency id="cordova-plugin-add-swift-support" version="2.0.2"/>
+
+        <header-file src="src/ios/AppDelegate+Geofencing.h"/>
+        <source-file src="src/ios/AppDelegate+Geofencing.m"/>
+
+        <source-file src="src/ios/Geofencing-Bridging-Header.h" />
+
         <source-file src="src/ios/Geofencing.swift" />
 
-    </platform-->
+    </platform>
 </plugin>
