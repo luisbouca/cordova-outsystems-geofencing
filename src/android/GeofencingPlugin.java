@@ -4,18 +4,29 @@ import android.Manifest;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentSender;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.icu.text.DateFormat;
 import android.icu.util.TimeZone;
 import android.os.Build;
+import android.util.Log;
+import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 
+import com.google.android.gms.common.api.ResolvableApiException;
 import com.google.android.gms.location.Geofence;
 import com.google.android.gms.location.GeofencingClient;
 import com.google.android.gms.location.GeofencingRequest;
+import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.LocationSettingsRequest;
+import com.google.android.gms.location.LocationSettingsResponse;
+import com.google.android.gms.location.SettingsClient;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.Task;
 
 import org.apache.cordova.CordovaPlugin;
 import org.apache.cordova.CallbackContext;
@@ -31,8 +42,9 @@ import java.util.Date;
  */
 public class GeofencingPlugin extends CordovaPlugin {
 
+    private static final int REQUEST_TURN_DEVICE_LOCATION_ON = 54;
     private final String TAG = "GeofencePluginService";
-    private final String sharedPreferencesDB = "com.luisbouca.test.geofence";
+    private final String sharedPreferencesDB = "com.outsystems.geofencing.geofence";
     private GeofencingClient mGeofencingClient;
     private PendingIntent mGeofencePendingIntent = null;
     private Context mContext;
@@ -43,6 +55,33 @@ public class GeofencingPlugin extends CordovaPlugin {
     protected void pluginInitialize() {
         mContext = cordova.getActivity();
         mGeofencingClient = LocationServices.getGeofencingClient(mContext);
+        LocationRequest locationRequest = LocationRequest.create().setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);
+
+        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder().addLocationRequest(locationRequest);
+
+        // check if the client location settings are satisfied
+        SettingsClient client = LocationServices.getSettingsClient(mContext);
+
+        // create a location response that acts as a listener for the device location if enabled
+        Task<LocationSettingsResponse> locationResponses = client.checkLocationSettings(builder.build());
+
+        locationResponses.addOnFailureListener(new OnFailureListener() {
+            @Override
+            public void onFailure(@NonNull Exception e) {
+                if (e instanceof ResolvableApiException) {
+                    try {
+                        ((ResolvableApiException) e).startResolutionForResult(
+                                cordova.getActivity(), REQUEST_TURN_DEVICE_LOCATION_ON
+                        );
+                    } catch (IntentSender.SendIntentException sendIntentException) {
+                        Log.d(TAG, "Error getting location settings resolution: "+sendIntentException.getMessage());
+                    }
+                } else {
+                    Toast.makeText(mContext, "Enable your location", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+
         super.pluginInitialize();
     }
 
@@ -117,7 +156,7 @@ public class GeofencingPlugin extends CordovaPlugin {
                 .build();
         GeofencingRequest geofenceRequest = new GeofencingRequest.Builder()
                 .addGeofence(mGeofence)
-                .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER | GeofencingRequest.INITIAL_TRIGGER_EXIT)
+                .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
                 .build();
         if (ActivityCompat.checkSelfPermission(mContext, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             // TODO: Consider calling
@@ -132,10 +171,19 @@ public class GeofencingPlugin extends CordovaPlugin {
         SharedPreferences preferences = cordova.getActivity().getApplicationContext().getSharedPreferences(sharedPreferencesDB,Context.MODE_PRIVATE);
         SharedPreferences.Editor preferencesEditor = preferences.edit();
         try {
-            JSONObject newFence = new JSONObject();
-            newFence.put("MasterPolicyNumber", policyNumber);
-            preferencesEditor.putString(id, newFence.toString());
+            JSONObject newFenceMPN = new JSONObject();
+            newFenceMPN.put("MasterPolicyNumber", policyNumber);
+            preferencesEditor.putString(id, newFenceMPN.toString());
             preferencesEditor.apply();
+            JSONObject newFence = new JSONObject();
+            newFence.put("lat",latitude);
+            newFence.put("lon",longitude);
+            newFence.put("radius",radiusInMeters.doubleValue());
+            newFence.put("dur",duration);
+            newFence.put("id",id);
+            JSONArray fences = new JSONArray(preferences.getString("fences","[]"));
+            fences.put(newFence);
+            preferencesEditor.putString("fences",fences.toString());
         }catch (JSONException e){
             e.printStackTrace();
         }

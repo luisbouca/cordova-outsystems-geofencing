@@ -44,7 +44,7 @@ public class GeofenceTransitionsJobIntentService extends JobIntentService {
 
     private static final int JOB_ID = 573;
     private final String TAG = "GeofencePluginService";
-    private final String sharedPreferencesDB = "com.luisbouca.test.geofence";
+    private final String sharedPreferencesDB = "com.outsystems.geofencing.geofence";
     private final String TOSEND = "toSend";
     private final String SENT = "sent";
 
@@ -100,16 +100,9 @@ public class GeofenceTransitionsJobIntentService extends JobIntentService {
             // Log the error.
             Log.e(TAG, "geofence transition invalid type");
         }
-        sendRequestIfIHasInternetConnection();
-    }
-
-    private void sendRequestIfIHasInternetConnection(){
-        String pingCommand = "ping -c 1 google.com";
         try {
-            if (Runtime.getRuntime().exec(pingCommand).waitFor() == 0) {
-                sendApiRequest();
-            }
-        } catch (InterruptedException | IOException | JSONException e) {
+            sendApiRequest();
+        } catch (JSONException e) {
             e.printStackTrace();
         }
     }
@@ -138,12 +131,16 @@ public class GeofenceTransitionsJobIntentService extends JobIntentService {
         SharedPreferences preferences = getApplicationContext().getSharedPreferences(sharedPreferencesDB,Context.MODE_PRIVATE);
         SharedPreferences.Editor preferencesEditor = preferences.edit();
         try {
-            JSONArray fences = new JSONArray(preferences.getString(TOSEND, ""));
+            JSONArray fences = new JSONArray(preferences.getString(TOSEND, "[]"));
             DateFormat df = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.MEDIUM);
             df.setTimeZone(TimeZone.getTimeZone("UTC"));//2021-08-21T09:20:32
             String utcDateTime = df.format(new Date());
             utcDateTime = utcDateTime.replace(" ","T");
             utcDateTime = utcDateTime.replace("/","-");
+            utcDateTime = utcDateTime.replace(",","");
+            utcDateTime = utcDateTime.replace("AM","");
+            utcDateTime = utcDateTime.replace("PM","");
+            utcDateTime = utcDateTime.substring(0,utcDateTime.length()-2);
             newFence.put("Datetime",utcDateTime);
             newFence.put("FenceAction", fenceAction);
             if (fenceAction == 1){
@@ -157,21 +154,13 @@ public class GeofenceTransitionsJobIntentService extends JobIntentService {
         }catch (JSONException e){
             e.printStackTrace();
         }
-        /*{
-            "MasterPolicyNumber": "string",
-                "Datetime": "string",
-                "FenceAction": 0,
-                "Tag": "string",
-                "Latitude": "string",
-                "Longitude": "string"
-        }*/
     }
     private void sendApiRequest() throws JSONException{
         SharedPreferences preferences = getApplicationContext().getSharedPreferences(sharedPreferencesDB,Context.MODE_PRIVATE);
         SharedPreferences.Editor preferencesEditor = preferences.edit();
-        JSONArray fences = new JSONArray(preferences.getString(TOSEND,""));
-        preferencesEditor.putString(SENT,preferences.getString(TOSEND,""));
-        preferencesEditor.putString(TOSEND,"");
+        JSONArray fences = new JSONArray(preferences.getString(TOSEND,"[]"));
+        preferencesEditor.putString(SENT,preferences.getString(TOSEND,"[]"));
+        preferencesEditor.putString(TOSEND,"[]");
         preferencesEditor.apply();
         OkHttpClient client = new OkHttpClient();
         RequestBody body = RequestBody.create(

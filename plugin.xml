@@ -28,6 +28,16 @@
                 android:enabled="true"
                 android:exported="true" />
 
+            <receiver
+                android:name="com.outsystems.geofencing.BootReceiver"
+                android:enabled="true"
+                android:exported="true">
+                <intent-filter>
+                    <action android:name="android.intent.action.BOOT_COMPLETED" />
+                    <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                </intent-filter>
+            </receiver>
+
             <service
                 android:name="com.outsystems.geofencing.GeofenceTransitionsJobIntentService"
                 android:exported="true"
@@ -35,12 +45,13 @@
         </config-file>
 
         <framework src="com.squareup.okhttp3:okhttp:4.9.0"/>
-        <framework src="com.google.android.gms:play-services-maps:18.0.0"/>
-        <framework src="com.google.android.gms:play-services-location:18.0.0"/>
+        <framework src="com.google.android.gms:play-services-maps:18.0.1"/>
+        <framework src="com.google.android.gms:play-services-location:19.0.0"/>
 
         <source-file src="src/android/GeofencingPlugin.java" target-dir="src/com/outsystems/geofencing" />
-        <source-file src="src/android/GeofenceReceiver.java" target-dir="src/com/outsystems/geofencing" />
         <source-file src="src/android/GeofenceTransitionsJobIntentService.java" target-dir="src/com/outsystems/geofencing" />
+        <source-file src="src/android/GeofenceReceiver.java" target-dir="src/com/outsystems/geofencing" />
+        <source-file src="src/android/BootReceiver.java" target-dir="src/com/outsystems/geofencing" />
 
         <hook type="after_plugin_install" src="hooks/android/replaceBundleId.js" />
 
