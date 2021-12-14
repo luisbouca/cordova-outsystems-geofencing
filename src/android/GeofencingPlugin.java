@@ -10,6 +10,7 @@ import android.content.pm.PackageManager;
 import android.icu.text.DateFormat;
 import android.icu.util.TimeZone;
 import android.os.Build;
+import android.os.Looper;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -17,10 +18,13 @@ import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 
 import com.google.android.gms.common.api.ResolvableApiException;
+import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.Geofence;
 import com.google.android.gms.location.GeofencingClient;
 import com.google.android.gms.location.GeofencingRequest;
+import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.LocationSettingsResponse;
@@ -50,14 +54,25 @@ public class GeofencingPlugin extends CordovaPlugin {
     private Context mContext;
     private static final int permissionsRequestCode = 34;
     private CallbackContext mCallback;
+    private LocationRequest locationRequestActive;
+    private LocationRequest locationRequestBackground;
+    private FusedLocationProviderClient fusedLocationProviderClient;
+    private Boolean isLocationFrgRunning = false;
+    private Boolean isLocationBkgRunning = true;
 
     @Override
     protected void pluginInitialize() {
         mContext = cordova.getActivity();
         mGeofencingClient = LocationServices.getGeofencingClient(mContext);
-        LocationRequest locationRequest = LocationRequest.create().setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);
+        locationRequestActive = LocationRequest.create().setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);
+        locationRequestBackground = LocationRequest.create().setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
 
-        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder().addLocationRequest(locationRequest);
+        locationRequestActive.setFastestInterval(60000);//1m
+        locationRequestActive.setInterval(600000);//10m
+        locationRequestBackground.setFastestInterval(120000);//2m
+        locationRequestBackground.setInterval(600000);//10m
+
+        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder().addLocationRequest(locationRequestActive);
 
         // check if the client location settings are satisfied
         SettingsClient client = LocationServices.getSettingsClient(mContext);
@@ -83,6 +98,8 @@ public class GeofencingPlugin extends CordovaPlugin {
         });
 
         super.pluginInitialize();
+
+        startForegroundLocation();
     }
 
     @Override
@@ -126,21 +143,79 @@ public class GeofencingPlugin extends CordovaPlugin {
     }
 
     @Override
+    public void onResume(boolean multitasking) {
+        startForegroundLocation();
+        super.onResume(multitasking);
+    }
+
+    @Override
+    public void onPause(boolean multitasking) {
+        startBackgroundLocation();
+        super.onPause(multitasking);
+    }
+
+    private void startForegroundLocation() {
+        if (isLocationFrgRunning){
+            return;
+        }
+        if (fusedLocationProviderClient == null){
+            fusedLocationProviderClient = new FusedLocationProviderClient(mContext);
+        }
+        if (ActivityCompat.checkSelfPermission(mContext, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(mContext, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            // TODO: Consider calling
+            //    ActivityCompat#requestPermissions
+            // here to request the missing permissions, and then overriding
+            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            //                                          int[] grantResults)
+            // to handle the case where the user grants the permission. See the documentation
+            // for ActivityCompat#requestPermissions for more details.
+            return;
+        }
+        fusedLocationProviderClient.removeLocationUpdates(getLocationPendingIntent());
+        fusedLocationProviderClient.requestLocationUpdates(locationRequestActive, getLocationPendingIntent());
+        isLocationFrgRunning = true;
+        isLocationBkgRunning = false;
+    }
+    private void startBackgroundLocation() {
+        if (isLocationBkgRunning){
+            return;
+        }
+        if (fusedLocationProviderClient == null){
+            fusedLocationProviderClient = new FusedLocationProviderClient(mContext);
+        }
+        if (ActivityCompat.checkSelfPermission(mContext, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(mContext, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            // TODO: Consider calling
+            //    ActivityCompat#requestPermissions
+            // here to request the missing permissions, and then overriding
+            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            //                                          int[] grantResults)
+            // to handle the case where the user grants the permission. See the documentation
+            // for ActivityCompat#requestPermissions for more details.
+            return;
+        }
+        fusedLocationProviderClient.removeLocationUpdates(getLocationPendingIntent());
+        fusedLocationProviderClient.requestLocationUpdates(locationRequestBackground, getLocationPendingIntent());
+        isLocationFrgRunning = false;
+        isLocationBkgRunning = true;
+    }
+
+    @Override
     public void onRequestPermissionResult(int requestCode, String[] permissions, int[] grantResults) throws JSONException {
         super.onRequestPermissionResult(requestCode, permissions, grantResults);
         if (mCallback != null) {
             if (requestCode == permissionsRequestCode) {
                 mGeofencingClient = LocationServices.getGeofencingClient(mContext);
                 Boolean permissionsGranted = true;
-                for (String permission : permissions) {
-                    if (cordova.hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)||cordova.hasPermission(Manifest.permission.ACCESS_COARSE_LOCATION)){
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                            cordova.requestPermission(this,permissionsRequestCode,Manifest.permission.ACCESS_BACKGROUND_LOCATION);
-                            return;
-                        }
+                if (cordova.hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)||cordova.hasPermission(Manifest.permission.ACCESS_COARSE_LOCATION)){
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        cordova.requestPermission(this,permissionsRequestCode,Manifest.permission.ACCESS_BACKGROUND_LOCATION);
+                        return;
                     }
+                }
+                for (String permission : permissions) {
                     permissionsGranted = permissionsGranted && cordova.hasPermission(permission);
                 }
+                startForegroundLocation();
                 mCallback.sendPluginResult(new PluginResult(PluginResult.Status.OK, permissionsGranted));
             }
         }
@@ -191,6 +266,17 @@ public class GeofencingPlugin extends CordovaPlugin {
     }
 
     private PendingIntent getGeofencePendingIntent() {
+        // Reuse the PendingIntent if we already have it.
+        if (mGeofencePendingIntent != null) {
+            return mGeofencePendingIntent;
+        }
+        Intent intent =new Intent(mContext, GeofenceReceiver.class);
+        // We use FLAG_UPDATE_CURRENT so that we get the same pending intent back when calling
+        // addGeofences() and removeGeofences().
+        mGeofencePendingIntent = PendingIntent.getBroadcast(mContext, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+        return mGeofencePendingIntent;
+    }
+    private PendingIntent getLocationPendingIntent() {
         // Reuse the PendingIntent if we already have it.
         if (mGeofencePendingIntent != null) {
             return mGeofencePendingIntent;

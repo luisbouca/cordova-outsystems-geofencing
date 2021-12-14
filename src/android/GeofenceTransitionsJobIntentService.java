@@ -61,8 +61,7 @@ public class GeofenceTransitionsJobIntentService extends JobIntentService {
 
         GeofencingEvent geofencingEvent = GeofencingEvent.fromIntent(intent);
         if (geofencingEvent.hasError()){
-            //val errorMessage = GeofenceErrorMessages.getErrorString(this,geofencingEvent.getErrorCode());
-            //Log.e(TAG,errorMessage)
+            Log.e(TAG, String.valueOf(geofencingEvent.getErrorCode()));
             return;
         }
         // Get the transition type.

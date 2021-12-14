@@ -66,16 +66,16 @@
 
         <preference name="LocationUsageDescriptioniOS" default="This app needs access to the location services."/>
         <config-file target="*-Info.plist" parent="NSLocationAlwaysUsageDescription">
-            <string>This app needs access to the location services.</string>
+            <string>${EXECUTABLE_NAME} Would Like to Use Your Current Location Even In Background.</string>
         </config-file>
         <config-file target="*-Info.plist" parent="NSLocationWhenInUseUsageDescription">
-            <string>This app needs access to the location services.</string>
+            <string>${EXECUTABLE_NAME} Would Like to Use Your Current Location When In Use.</string>
         </config-file>
         <config-file target="*-Info.plist" parent="NSLocationAlwaysAndWhenInUseUsageDescription">
-            <string>This app needs access to the location services.</string>
+            <string>${EXECUTABLE_NAME} Would Like to Use Your Current Location When In Use And Even In Background.</string>
         </config-file>
         <config-file target="*-Info.plist" parent="NSLocationUsageDescription">
-            <string>This app needs access to the location services.</string>
+            <string>${EXECUTABLE_NAME} Would Like to Use Your Current Location.</string>
         </config-file>
 
         <config-file target="*-Info.plist" parent="UIBackgroundModes">
