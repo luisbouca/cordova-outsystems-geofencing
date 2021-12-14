@@ -74,6 +74,9 @@
     currDate = [currDate stringByReplacingOccurrencesOfString:@" " withString:@"T"];
     NSString* latitude = [NSString stringWithFormat:@"%.12lf",location.coordinate.latitude];
     NSString* longitude = [NSString stringWithFormat:@"%.12lf",location.coordinate.longitude];
+    if (type == 1){
+        identifier = @"Fora de fence";
+    }
     NSDictionary *newGeofence = @{@"MasterPolicyNumber":policyNumber,
                                   @"Datetime":currDate,
                                   @"FenceAction":@(type),
