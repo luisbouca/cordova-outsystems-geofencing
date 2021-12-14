@@ -96,15 +96,13 @@
         [defaults setValue:queue forKey:@"GeofencingQueue"];
         return;
     }
-    NSString * postString = [[NSString alloc] initWithData:postData encoding:NSUTF8StringEncoding];
-    
     
     NSMutableURLRequest *request = [[NSMutableURLRequest alloc] init];
         [request setHTTPMethod:@"POST"];
-        [request setHTTPBody:postString];
+        [request setHTTPBody:postData];
         [request setValue:[defaults stringForKey:@"AppId"] forHTTPHeaderField:@"X-Contacts-AppId"];
         [request setValue:[defaults stringForKey:@"Key"] forHTTPHeaderField:@"X-Contacts-Key"];
-        //[request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+        [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
         [request setURL:[NSURL URLWithString:[defaults stringForKey:@"Url"]]];
     
     [[[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:
