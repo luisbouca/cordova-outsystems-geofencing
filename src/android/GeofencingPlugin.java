@@ -30,6 +30,7 @@ import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.LocationSettingsResponse;
 import com.google.android.gms.location.SettingsClient;
 import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 
 import org.apache.cordova.CordovaPlugin;
@@ -54,25 +55,20 @@ public class GeofencingPlugin extends CordovaPlugin {
     private Context mContext;
     private static final int permissionsRequestCode = 34;
     private CallbackContext mCallback;
-    private LocationRequest locationRequestActive;
     private LocationRequest locationRequestBackground;
     private FusedLocationProviderClient fusedLocationProviderClient;
-    private Boolean isLocationFrgRunning = false;
-    private Boolean isLocationBkgRunning = true;
 
     @Override
     protected void pluginInitialize() {
         mContext = cordova.getActivity();
-        mGeofencingClient = LocationServices.getGeofencingClient(mContext);
-        locationRequestActive = LocationRequest.create().setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);
-        locationRequestBackground = LocationRequest.create().setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        mGeofencingClient = LocationServices.getGeofencingClient(cordova.getActivity());
+        locationRequestBackground = LocationRequest.create().setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);
+        LocationRequest locationRequest = LocationRequest.create().setPriority(LocationRequest.PRIORITY_LOW_POWER);
 
-        locationRequestActive.setFastestInterval(60000);//1m
-        locationRequestActive.setInterval(600000);//10m
         locationRequestBackground.setFastestInterval(120000);//2m
-        locationRequestBackground.setInterval(600000);//10m
+        locationRequestBackground.setInterval(600000);//5m
 
-        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder().addLocationRequest(locationRequestActive);
+        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder().addLocationRequest(locationRequest);
 
         // check if the client location settings are satisfied
         SettingsClient client = LocationServices.getSettingsClient(mContext);
@@ -80,33 +76,33 @@ public class GeofencingPlugin extends CordovaPlugin {
         // create a location response that acts as a listener for the device location if enabled
         Task<LocationSettingsResponse> locationResponses = client.checkLocationSettings(builder.build());
 
-        locationResponses.addOnFailureListener(new OnFailureListener() {
-            @Override
-            public void onFailure(@NonNull Exception e) {
-                if (e instanceof ResolvableApiException) {
-                    try {
-                        ((ResolvableApiException) e).startResolutionForResult(
-                                cordova.getActivity(), REQUEST_TURN_DEVICE_LOCATION_ON
-                        );
-                    } catch (IntentSender.SendIntentException sendIntentException) {
-                        Log.d(TAG, "Error getting location settings resolution: "+sendIntentException.getMessage());
-                    }
-                } else {
-                    Toast.makeText(mContext, "Enable your location", Toast.LENGTH_SHORT).show();
+        locationResponses.addOnFailureListener(e -> {
+            if (e instanceof ResolvableApiException) {
+                try {
+                    ((ResolvableApiException) e).startResolutionForResult(
+                            cordova.getActivity(), REQUEST_TURN_DEVICE_LOCATION_ON
+                    );
+                } catch (IntentSender.SendIntentException sendIntentException) {
+                    Log.d(TAG, "Error getting location settings resolution: " + sendIntentException.getMessage());
                 }
+            } else {
+                Toast.makeText(mContext, "Enable your location", Toast.LENGTH_SHORT).show();
+                Log.d(TAG, e.getMessage());
             }
-        });
-
+        }).addOnSuccessListener(locationSettingsResponse -> startLocation());
+        String test = preferences.getString("toSend", "");
+        String test2 = preferences.getString("sent", "");
         super.pluginInitialize();
-
-        startForegroundLocation();
     }
 
     @Override
     public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
         switch (action) {
             case "registerFence":
-                addFence(args.getDouble(0), args.getDouble(1), (float) args.getDouble(2), args.getLong(3), args.getString(4),args.getString(5));
+                addFence(args.getDouble(0), args.getDouble(1), (float) args.getDouble(2), args.getLong(3), args.getString(4), args.getString(5));
+                removeFences();
+                registerFences();
+                startLocation();
                 callbackContext.success();
                 return true;
             case "removeFences":
@@ -125,13 +121,13 @@ public class GeofencingPlugin extends CordovaPlugin {
             case "requestPermission":
                 mCallback = callbackContext;
 
-                cordova.requestPermissions(this, permissionsRequestCode, new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION});
+                cordova.requestPermissions(this, permissionsRequestCode, new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION});
                 return true;
             case "setup":
-                SharedPreferences preferences = cordova.getActivity().getApplicationContext().getSharedPreferences(sharedPreferencesDB,Context.MODE_PRIVATE);
+                SharedPreferences preferences = cordova.getActivity().getApplicationContext().getSharedPreferences(sharedPreferencesDB, Context.MODE_PRIVATE);
                 SharedPreferences.Editor preferencesEditor = preferences.edit();
-                preferencesEditor.putString("Url",args.getString(0));
-                preferencesEditor.putString("AppId",args.getString(1));
+                preferencesEditor.putString("Url", args.getString(0));
+                preferencesEditor.putString("AppId", args.getString(1));
                 preferencesEditor.putString("Key", args.getString(2));
                 preferencesEditor.apply();
                 callbackContext.success();
@@ -142,47 +138,46 @@ public class GeofencingPlugin extends CordovaPlugin {
         }
     }
 
-    @Override
-    public void onResume(boolean multitasking) {
-        startForegroundLocation();
-        super.onResume(multitasking);
+    private void registerFences() {
+        SharedPreferences preferences = cordova.getActivity().getApplicationContext().getSharedPreferences(sharedPreferencesDB, Context.MODE_PRIVATE);
+        try {
+
+            JSONArray fences = new JSONArray(preferences.getString("fences", "[]"));
+            GeofencingRequest.Builder geofenceRequest = new GeofencingRequest.Builder()
+                    .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER | GeofencingRequest.INITIAL_TRIGGER_EXIT);
+            for (int i = 0; i < fences.length(); i++) {
+                JSONObject fence = fences.getJSONObject(i);
+                Geofence mGeofence = new Geofence.Builder()
+                        .setRequestId(fence.getString("id"))
+                        .setCircularRegion(fence.getDouble("lat"), fence.getDouble("lon"), (float) fence.getDouble("radius"))
+                        .setExpirationDuration(fence.getLong("dur"))
+                        .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER | Geofence.GEOFENCE_TRANSITION_EXIT)
+                        .build();
+                geofenceRequest.addGeofence(mGeofence);
+            }
+
+
+            if (ActivityCompat.checkSelfPermission(cordova.getActivity(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                // TODO: Consider calling
+                //    ActivityCompat#requestPermissions
+                // here to request the missing permissions, and then overriding
+                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                //                                          int[] grantResults)
+                // to handle the case where the user grants the permission. See the documentation
+                // for ActivityCompat#requestPermissions for more details.
+                return;
+            }
+            mGeofencingClient.addGeofences(geofenceRequest.build(), getGeofencePendingIntent());
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
     }
 
-    @Override
-    public void onPause(boolean multitasking) {
-        startBackgroundLocation();
-        super.onPause(multitasking);
-    }
-
-    private void startForegroundLocation() {
-        if (isLocationFrgRunning){
+    private void startLocation() {
+        if (fusedLocationProviderClient != null){
             return;
         }
-        if (fusedLocationProviderClient == null){
-            fusedLocationProviderClient = new FusedLocationProviderClient(mContext);
-        }
-        if (ActivityCompat.checkSelfPermission(mContext, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(mContext, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-            return;
-        }
-        fusedLocationProviderClient.removeLocationUpdates(getLocationPendingIntent());
-        fusedLocationProviderClient.requestLocationUpdates(locationRequestActive, getLocationPendingIntent());
-        isLocationFrgRunning = true;
-        isLocationBkgRunning = false;
-    }
-    private void startBackgroundLocation() {
-        if (isLocationBkgRunning){
-            return;
-        }
-        if (fusedLocationProviderClient == null){
-            fusedLocationProviderClient = new FusedLocationProviderClient(mContext);
-        }
+        fusedLocationProviderClient = new FusedLocationProviderClient(mContext);
         if (ActivityCompat.checkSelfPermission(mContext, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(mContext, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             // TODO: Consider calling
             //    ActivityCompat#requestPermissions
@@ -195,8 +190,6 @@ public class GeofencingPlugin extends CordovaPlugin {
         }
         fusedLocationProviderClient.removeLocationUpdates(getLocationPendingIntent());
         fusedLocationProviderClient.requestLocationUpdates(locationRequestBackground, getLocationPendingIntent());
-        isLocationFrgRunning = false;
-        isLocationBkgRunning = true;
     }
 
     @Override
@@ -206,7 +199,7 @@ public class GeofencingPlugin extends CordovaPlugin {
             if (requestCode == permissionsRequestCode) {
                 mGeofencingClient = LocationServices.getGeofencingClient(mContext);
                 Boolean permissionsGranted = true;
-                if (cordova.hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)||cordova.hasPermission(Manifest.permission.ACCESS_COARSE_LOCATION)){
+                if ((cordova.hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)||cordova.hasPermission(Manifest.permission.ACCESS_COARSE_LOCATION)) && !cordova.hasPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION)){
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                         cordova.requestPermission(this,permissionsRequestCode,Manifest.permission.ACCESS_BACKGROUND_LOCATION);
                         return;
@@ -215,7 +208,9 @@ public class GeofencingPlugin extends CordovaPlugin {
                 for (String permission : permissions) {
                     permissionsGranted = permissionsGranted && cordova.hasPermission(permission);
                 }
-                startForegroundLocation();
+                if (permissionsGranted){
+                    startLocation();
+                }
                 mCallback.sendPluginResult(new PluginResult(PluginResult.Status.OK, permissionsGranted));
             }
         }
@@ -223,26 +218,6 @@ public class GeofencingPlugin extends CordovaPlugin {
 
     private void addFence(Double latitude, Double longitude, Float radiusInMeters, Long duration, String id,String policyNumber) {
         duration = (duration == 0L)? Geofence.NEVER_EXPIRE : duration;
-        Geofence mGeofence = new Geofence.Builder()
-                .setRequestId(id)
-                .setCircularRegion(latitude, longitude, radiusInMeters)
-                .setExpirationDuration(duration)
-                .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER | Geofence.GEOFENCE_TRANSITION_EXIT)
-                .build();
-        GeofencingRequest geofenceRequest = new GeofencingRequest.Builder()
-                .addGeofence(mGeofence)
-                .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
-                .build();
-        if (ActivityCompat.checkSelfPermission(mContext, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-            return;
-        }
         SharedPreferences preferences = cordova.getActivity().getApplicationContext().getSharedPreferences(sharedPreferencesDB,Context.MODE_PRIVATE);
         SharedPreferences.Editor preferencesEditor = preferences.edit();
         try {
@@ -259,10 +234,10 @@ public class GeofencingPlugin extends CordovaPlugin {
             JSONArray fences = new JSONArray(preferences.getString("fences","[]"));
             fences.put(newFence);
             preferencesEditor.putString("fences",fences.toString());
+            preferencesEditor.apply();
         }catch (JSONException e){
             e.printStackTrace();
         }
-        mGeofencingClient.addGeofences(geofenceRequest, getGeofencePendingIntent());
     }
 
     private PendingIntent getGeofencePendingIntent() {

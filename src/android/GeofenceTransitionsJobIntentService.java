@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.icu.text.DateFormat;
+import android.icu.text.SimpleDateFormat;
 import android.icu.util.TimeZone;
 import android.os.Build;
 import android.text.TextUtils;
@@ -30,6 +31,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 import okhttp3.Call;
 import okhttp3.Callback;
@@ -95,14 +97,14 @@ public class GeofenceTransitionsJobIntentService extends JobIntentService {
                     triggeringGeofences);
 
             Log.i(TAG, geofenceTransitionDetails);
+            try {
+                sendApiRequest();
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
         } else {
             // Log the error.
             Log.e(TAG, "geofence transition invalid type");
-        }
-        try {
-            sendApiRequest();
-        } catch (JSONException e) {
-            e.printStackTrace();
         }
     }
 
@@ -131,15 +133,10 @@ public class GeofenceTransitionsJobIntentService extends JobIntentService {
         SharedPreferences.Editor preferencesEditor = preferences.edit();
         try {
             JSONArray fences = new JSONArray(preferences.getString(TOSEND, "[]"));
-            DateFormat df = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.MEDIUM);
+            DateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
             df.setTimeZone(TimeZone.getTimeZone("UTC"));//2021-08-21T09:20:32
             String utcDateTime = df.format(new Date());
             utcDateTime = utcDateTime.replace(" ","T");
-            utcDateTime = utcDateTime.replace("/","-");
-            utcDateTime = utcDateTime.replace(",","");
-            utcDateTime = utcDateTime.replace("AM","");
-            utcDateTime = utcDateTime.replace("PM","");
-            utcDateTime = utcDateTime.substring(0,utcDateTime.length()-2);
             newFence.put("Datetime",utcDateTime);
             newFence.put("FenceAction", fenceAction);
             if (fenceAction == 1){
@@ -165,11 +162,13 @@ public class GeofenceTransitionsJobIntentService extends JobIntentService {
         RequestBody body = RequestBody.create(
                 MediaType.parse("application/json"), fences.toString());
 
-
+        String Url = preferences.getString("Url","");
+        String AppId = preferences.getString("AppId","");
+        String Key = preferences.getString("Key","");
         Request request = new Request.Builder()
-                .url(preferences.getString("Url",""))   //URL
-                .addHeader("X-Contacts-AppId",preferences.getString("AppId",""))
-                .addHeader("X-Contacts-Key",preferences.getString("Key",""))
+                .url(Url)
+                .addHeader("X-Contacts-AppId",AppId)
+                .addHeader("X-Contacts-Key",Key)
                 .post(body)
                 .build();
 
@@ -180,16 +179,16 @@ public class GeofenceTransitionsJobIntentService extends JobIntentService {
                 e.getStackTrace();
                 try {
                     if (!preferences.getString(TOSEND, "").equals("")) {
-                        JSONArray tojoin = new JSONArray(preferences.getString(SENT, ""));
-                        JSONArray joined = new JSONArray(preferences.getString(TOSEND, ""));
+                        JSONArray tojoin = new JSONArray(preferences.getString(SENT, "[]"));
+                        JSONArray joined = new JSONArray(preferences.getString(TOSEND, "[]"));
                         for (int i = 0; i<tojoin.length();i++) {
                             joined.put(tojoin.getJSONObject(i));
                         }
                         preferencesEditor.putString(TOSEND, joined.toString());
                     } else {
-                        preferencesEditor.putString(TOSEND, preferences.getString(SENT, ""));
+                        preferencesEditor.putString(TOSEND, preferences.getString(SENT, "[]"));
                     }
-                    preferencesEditor.putString(SENT,"");
+                    preferencesEditor.putString(SENT,"[]");
                     preferencesEditor.apply();
                 }catch (JSONException e1){
                     e1.printStackTrace();
