@@ -84,14 +84,13 @@
             </array>
         </config-file>
 
-        <dependency id="cordova-plugin-add-swift-support" version="2.0.2"/>
-
         <header-file src="src/ios/AppDelegate+Geofencing.h"/>
         <source-file src="src/ios/AppDelegate+Geofencing.m"/>
 
         <source-file src="src/ios/Geofencing-Bridging-Header.h" />
 
-        <source-file src="src/ios/Geofencing.swift" />
+        <source-file src="src/ios/Geofencing.h" />
+        <source-file src="src/ios/Geofencing.m" />
 
     </platform>
 </plugin>
