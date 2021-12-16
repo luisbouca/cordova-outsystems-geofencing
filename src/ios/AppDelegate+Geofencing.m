@@ -21,8 +21,9 @@
 - (BOOL)xxx_application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions{
     self.locationManager = [[CLLocationManager alloc] init];
     self.locationManager.delegate = self;
-    self.locationManager.desiredAccuracy = kCLLocationAccuracyBest;
+    self.locationManager.desiredAccuracy = kCLLocationAccuracyHundredMeters;
     self.locationManager.allowsBackgroundLocationUpdates = true;
+    [self.locationManager startUpdatingLocation];
     return [self xxx_application:application didFinishLaunchingWithOptions:launchOptions];
         
 }
@@ -127,6 +128,23 @@
         }
         
     }] resume];
+}
+
+- (void)locationManager:(CLLocationManager *)manager didUpdateLocations:(NSArray<CLLocation *> *)locations{
+    NSLog(@"Location Updated!");
+}
+
+- (void)locationManager:(CLLocationManager *)manager didFailWithError:(NSError *)error{
+    NSString* msg =@"There was an error getting Location!\n";
+    msg = [msg stringByAppendingString:error.localizedDescription];
+    NSLog(@"%@", msg);
+    
+}
+
+- (void)locationManager:(CLLocationManager *)manager monitoringDidFailForRegion:(CLRegion *)region withError:(NSError *)error{
+    NSString* msg =@"There was an error monitoring Location!\n";
+    msg = [msg stringByAppendingString:error.localizedDescription];
+    NSLog(@"%@", msg);
 }
 /*
 - (void)locationManagerDidChangeAuthorization:(CLLocationManager *)manager{
