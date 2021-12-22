@@ -10,6 +10,10 @@
 @implementation Geofencing
 
 - (void)pluginInitialize{
+    [self updateLocationManager];
+}
+
+-(void) updateLocationManager{
     _appdelegateInstance = (AppDelegate *)[[UIApplication sharedApplication] delegate];
     _locationManager = self.appdelegateInstance.locationManager;
 }
@@ -19,11 +23,13 @@
     [defaults setValue:[command argumentAtIndex:0] forKey:@"Url"];
     [defaults setValue:[command argumentAtIndex:1] forKey:@"AppId"];
     [defaults setValue:[command argumentAtIndex:2] forKey:@"Key"];
+    [defaults setBool:[[command argumentAtIndex:3] boolValue] forKey:@"isDebug"];
     CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
     [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
     
 }
 -(void) checkPermissions:(CDVInvokedUrlCommand*) command{
+    [self updateLocationManager];
     if (@available(iOS 14.0, *)) {
         switch ([self.locationManager authorizationStatus]) {
             case kCLAuthorizationStatusAuthorizedAlways:{
@@ -43,6 +49,7 @@
     }
 }
 -(void) registerFence:(CDVInvokedUrlCommand*) command{
+    [self updateLocationManager];
     if ([CLLocationManager isMonitoringAvailableForClass:CLCircularRegion.class]) {
         CLLocationDistance maxDistance = self.locationManager.maximumRegionMonitoringDistance;
         
@@ -53,12 +60,18 @@
             radius = maxDistance;
         }
         
-        NSString * tag = [[command argumentAtIndex:4] string];
-        NSString * masterPolicyNumber = [[command argumentAtIndex:5] string];
+        NSString * tag = [command argumentAtIndex:4];
+        NSString * masterPolicyNumber = [command argumentAtIndex:5];
         
         CLLocationCoordinate2D center = CLLocationCoordinate2DMake(latitude, longitude);
         
         CLCircularRegion *region = [[CLCircularRegion alloc] initWithCenter:center radius:radius identifier:tag];
+        
+        region.notifyOnEntry = true;
+        region.notifyOnExit = true;
+        
+        NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
+        [defaults setValue:masterPolicyNumber forKey:tag];
         
         [self.locationManager startMonitoringForRegion:region];
         CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
@@ -77,6 +90,7 @@
     [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
 }
 -(void) requestPermission:(CDVInvokedUrlCommand*) command{
+    [self updateLocationManager];
     if (![CLLocationManager locationServicesEnabled]) {
         CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Location Services Disabled!"];
         [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];

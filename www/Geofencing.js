@@ -15,6 +15,6 @@ exports.requestPermission = function (success, error) {
 exports.checkPermission = function (success, error) {
     exec(success, error, 'Geofencing', 'checkPermission', []);
 };
-exports.setup = function (success, error,url,appid,key) {
-    exec(success, error, 'Geofencing', 'setup', [url,appid,key]);
+exports.setup = function (success, error,url,appid,key,isDebug) {
+    exec(success, error, 'Geofencing', 'setup', [url,appid,key,isDebug]);
 };

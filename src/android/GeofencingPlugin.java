@@ -90,8 +90,6 @@ public class GeofencingPlugin extends CordovaPlugin {
                 Log.d(TAG, e.getMessage());
             }
         }).addOnSuccessListener(locationSettingsResponse -> startLocation());
-        String test = preferences.getString("toSend", "");
-        String test2 = preferences.getString("sent", "");
         super.pluginInitialize();
     }
 
@@ -99,11 +97,11 @@ public class GeofencingPlugin extends CordovaPlugin {
     public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
         switch (action) {
             case "registerFence":
+                mCallback = callbackContext;
                 addFence(args.getDouble(0), args.getDouble(1), (float) args.getDouble(2), args.getLong(3), args.getString(4), args.getString(5));
                 removeFences();
                 registerFences();
                 startLocation();
-                callbackContext.success();
                 return true;
             case "removeFences":
                 removeFences();
@@ -129,6 +127,7 @@ public class GeofencingPlugin extends CordovaPlugin {
                 preferencesEditor.putString("Url", args.getString(0));
                 preferencesEditor.putString("AppId", args.getString(1));
                 preferencesEditor.putString("Key", args.getString(2));
+                preferencesEditor.putBoolean("isDebug", args.getBoolean(3));
                 preferencesEditor.apply();
                 callbackContext.success();
                 return true;
@@ -167,7 +166,18 @@ public class GeofencingPlugin extends CordovaPlugin {
                 // for ActivityCompat#requestPermissions for more details.
                 return;
             }
-            mGeofencingClient.addGeofences(geofenceRequest.build(), getGeofencePendingIntent());
+            mGeofencingClient.addGeofences(geofenceRequest.build(), getGeofencePendingIntent()).addOnSuccessListener(new OnSuccessListener<Void>() {
+                @Override
+                public void onSuccess(@NonNull Void unused) {
+
+                    mCallback.success();
+                }
+            }).addOnFailureListener(new OnFailureListener() {
+                @Override
+                public void onFailure(@NonNull Exception e) {
+                    mCallback.error(e.getLocalizedMessage());
+                }
+            });
         } catch (JSONException e) {
             e.printStackTrace();
         }
@@ -177,7 +187,7 @@ public class GeofencingPlugin extends CordovaPlugin {
         if (fusedLocationProviderClient != null){
             return;
         }
-        fusedLocationProviderClient = new FusedLocationProviderClient(mContext);
+        fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(mContext);
         if (ActivityCompat.checkSelfPermission(mContext, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(mContext, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             // TODO: Consider calling
             //    ActivityCompat#requestPermissions
@@ -264,6 +274,9 @@ public class GeofencingPlugin extends CordovaPlugin {
     }
 
     private void removeFences(){
+        SharedPreferences preferences = cordova.getActivity().getApplicationContext().getSharedPreferences(sharedPreferencesDB,Context.MODE_PRIVATE);
+        SharedPreferences.Editor preferencesEditor = preferences.edit();
+        preferencesEditor.putString("fences","[]");
         mGeofencingClient.removeGeofences(getGeofencePendingIntent());
     }
 }

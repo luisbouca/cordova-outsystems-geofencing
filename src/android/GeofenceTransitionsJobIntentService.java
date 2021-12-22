@@ -6,6 +6,7 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.icu.text.DateFormat;
 import android.icu.text.SimpleDateFormat;
@@ -21,7 +22,9 @@ import androidx.core.app.TaskStackBuilder;
 
 import com.google.android.gms.location.Geofence;
 import com.google.android.gms.location.GeofencingEvent;
+
 import $appid.MainActivity;
+import $appid.R;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -49,6 +52,8 @@ public class GeofenceTransitionsJobIntentService extends JobIntentService {
     private final String sharedPreferencesDB = "com.outsystems.geofencing.geofence";
     private final String TOSEND = "toSend";
     private final String SENT = "sent";
+    private static final String CHANNEL_ID = "channel_01";
+    private static final String CHANNEL_ID2 = "channel_02";
 
     /**
      * Convenience method for enqueuing work in to this service.
@@ -73,6 +78,7 @@ public class GeofenceTransitionsJobIntentService extends JobIntentService {
         if (geofenceTransition == Geofence.GEOFENCE_TRANSITION_ENTER ||
                 geofenceTransition == Geofence.GEOFENCE_TRANSITION_EXIT) {
 
+            sendNotification("New Geofence detected","",CHANNEL_ID);
             // Get the geofences that were triggered. A single event can trigger multiple geofences.
             List<Geofence> triggeringGeofences = geofencingEvent.getTriggeringGeofences();
             try {
@@ -85,7 +91,7 @@ public class GeofenceTransitionsJobIntentService extends JobIntentService {
                     }
                     fence.put("Latitude", geofencingEvent.getTriggeringLocation().getLatitude());
                     fence.put("Longitude", geofencingEvent.getTriggeringLocation().getLongitude());
-                    
+
                     registerRequest(fence, geofence.getRequestId(), action);
                 }
             }catch (JSONException e){
@@ -103,6 +109,7 @@ public class GeofenceTransitionsJobIntentService extends JobIntentService {
                 e.printStackTrace();
             }
         } else {
+            sendNotification("New Location","New location retrieved!",CHANNEL_ID2);
             // Log the error.
             Log.e(TAG, "geofence transition invalid type");
         }
@@ -147,6 +154,7 @@ public class GeofenceTransitionsJobIntentService extends JobIntentService {
             fences.put(newFence);
             preferencesEditor.putString(TOSEND, fences.toString());
             preferencesEditor.apply();
+            sendNotification("New Geofence added to send",fences.toString(), CHANNEL_ID);
         }catch (JSONException e){
             e.printStackTrace();
         }
@@ -172,11 +180,14 @@ public class GeofenceTransitionsJobIntentService extends JobIntentService {
                 .post(body)
                 .build();
 
+        sendNotification("Geofence Sent",fences.toString(), CHANNEL_ID);
 
         client.newCall(request).enqueue(new Callback() {
             @Override
             public void onFailure(@NonNull Call call, @NonNull IOException e) {
                 e.getStackTrace();
+
+                sendNotification("Geofence Sent error"," ", CHANNEL_ID);
                 try {
                     if (!preferences.getString(TOSEND, "").equals("")) {
                         JSONArray tojoin = new JSONArray(preferences.getString(SENT, "[]"));
@@ -198,6 +209,8 @@ public class GeofenceTransitionsJobIntentService extends JobIntentService {
             @Override
             public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
                 try {
+
+                    sendNotification("Geofence Sent response", String.valueOf(response.code()), CHANNEL_ID);
                     if (response.code() != 200) {
                         if (!preferences.getString(TOSEND, "").equals("")) {
                             JSONArray tojoin = new JSONArray(preferences.getString(SENT, ""));
@@ -234,5 +247,68 @@ public class GeofenceTransitionsJobIntentService extends JobIntentService {
             default:
                 return "unknown";
         }
+    }
+
+    private void sendNotification(String notificationTitle, String notificationDetails, String channelId) {
+        SharedPreferences preferences = getApplicationContext().getSharedPreferences(sharedPreferencesDB,Context.MODE_PRIVATE);
+        Boolean isDebug = preferences.getBoolean("isDebug", false);
+        if (!isDebug){
+            return;
+        }
+        // Get an instance of the Notification manager
+        NotificationManager mNotificationManager =
+                (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+
+        // Android O requires a Notification Channel.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            CharSequence name = getString(R.string.app_name);
+            // Create the channel for the notification
+            NotificationChannel mChannel =
+                    new NotificationChannel(channelId, name, NotificationManager.IMPORTANCE_DEFAULT);
+
+            // Set the Notification Channel for the Notification Manager.
+            mNotificationManager.createNotificationChannel(mChannel);
+        }
+
+        // Create an explicit content Intent that starts the main Activity.
+        Intent notificationIntent = new Intent(getApplicationContext(), MainActivity.class);
+
+        // Construct a task stack.
+        TaskStackBuilder stackBuilder = TaskStackBuilder.create(this);
+
+        // Add the main Activity to the task stack as the parent.
+        stackBuilder.addParentStack(MainActivity.class);
+
+        // Push the content Intent onto the stack.
+        stackBuilder.addNextIntent(notificationIntent);
+
+        // Get a PendingIntent containing the entire back stack.
+        PendingIntent notificationPendingIntent =
+                stackBuilder.getPendingIntent(0, PendingIntent.FLAG_UPDATE_CURRENT);
+
+        // Get a notification builder that's compatible with platform versions >= 4
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this);
+
+        // Define the notification settings.
+        builder.setSmallIcon(R.mipmap.ic_launcher)
+                // In a real app, you may want to use a library like Volley
+                // to decode the Bitmap.
+                .setLargeIcon(BitmapFactory.decodeResource(getResources(),
+                        R.mipmap.ic_launcher))
+                .setColor(Color.RED)
+                .setContentTitle(notificationTitle)
+                .setContentText(notificationDetails)
+                .setContentIntent(notificationPendingIntent);
+
+        // Set the Channel ID for Android O.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            builder.setChannelId(CHANNEL_ID); // Channel ID
+        }
+
+        // Dismiss notification once the user touches it.
+        builder.setAutoCancel(true);
+
+        // Issue the notification
+        mNotificationManager.notify(0, builder.build());
     }
 }

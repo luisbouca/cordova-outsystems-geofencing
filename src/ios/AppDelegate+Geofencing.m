@@ -66,6 +66,8 @@
 }
 
 -(void) handleEvent:(CLRegion*)region withType:(NSInteger)type withLocation:(CLLocation*)location{
+    
+    NSLog(@"Fence Detected!");
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     NSString* identifier = region.identifier;
     NSString* policyNumber = [defaults stringForKey:identifier];;
@@ -109,18 +111,22 @@
         [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
         [request setURL:[NSURL URLWithString:[defaults stringForKey:@"Url"]]];
     
+    NSLog(@"Fence Sent!");
     [[[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:
       ^(NSData * _Nullable data,
         NSURLResponse * _Nullable response,
         NSError * _Nullable error) {
         
         if (error != nil) {
+            
+            NSLog(@"Fence Error!");
             [defaults setValue:queue forKey:@"GeofencingQueue"];
             return;
         }
         
         NSInteger statusCode = [(NSHTTPURLResponse *)response statusCode];
-
+        NSString *fencemsg =@"Fence Sent status code:";
+        NSLog(@"%@", [fencemsg stringByAppendingString:[@(statusCode) stringValue] ]);
         if (statusCode != 200) {
             [defaults setValue:queue forKey:@"GeofencingQueue"];
         }else{
@@ -146,23 +152,28 @@
     msg = [msg stringByAppendingString:error.localizedDescription];
     NSLog(@"%@", msg);
 }
-/*
+
 - (void)locationManagerDidChangeAuthorization:(CLLocationManager *)manager{
-    
-    if #available(iOS 14.0, *) {
-        switch manager.authorizationStatus{
-        case .authorizedAlways:
-            self.commandDelegate.send(CDVPluginResult(status: CDVCommandStatus.ok, messageAs: true), callbackId: callback)
-        case .notDetermined, .restricted, .denied, .authorizedWhenInUse:
-            self.commandDelegate.send(CDVPluginResult(status: CDVCommandStatus.ok, messageAs: false), callbackId: callback)
-        @unknown default:
-            self.commandDelegate.send(CDVPluginResult(status: CDVCommandStatus.error, messageAs: "Location permission Status unkown"), callbackId: callback)
+    if (@available(iOS 14.0, *)) {
+        switch (manager.authorizationStatus) {
+            case kCLAuthorizationStatusAuthorizedAlways:{
+                NSLog(@"Always Permission Granted!");
+                break;
+            }
+            case kCLAuthorizationStatusAuthorizedWhenInUse:{
+                NSLog(@"When in use Permission Granted!");
+                break;
+            }
+            default:{
+                NSLog(@"Permission Not Granted!");
+                break;
+            }
         }
     } else {
-        self.commandDelegate.send(CDVPluginResult(status: CDVCommandStatus.ok, messageAs: CLLocationManager.locationServicesEnabled()), callbackId: callback)
-        
+        if (CLLocationManager.locationServicesEnabled) {
+            NSLog(@"Permission Granted!");
+        }
     }
-}*/
-
+}
 
 @end

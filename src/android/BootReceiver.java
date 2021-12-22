@@ -1,6 +1,7 @@
 package com.outsystems.geofencing;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -10,8 +11,10 @@ import android.content.pm.PackageManager;
 
 import androidx.core.app.ActivityCompat;
 
+import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.Geofence;
 import com.google.android.gms.location.GeofencingRequest;
+import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 
 import org.json.JSONArray;
@@ -28,6 +31,16 @@ public class BootReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         geofenceList = new ArrayList<>();
+        if ((ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) || ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            // TODO: Consider calling
+            //    ActivityCompat#requestPermissions
+            // here to request the missing permissions, and then overriding
+            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            //                                          int[] grantResults)
+            // to handle the case where the user grants the permission. See the documentation
+            // for ActivityCompat#requestPermissions for more details.
+            return;
+        }
         SharedPreferences preferences = context.getApplicationContext().getSharedPreferences(sharedPreferencesDB,Context.MODE_PRIVATE);
         try {
             JSONArray fences = new JSONArray(preferences.getString("fences","[]"));
@@ -39,6 +52,16 @@ public class BootReceiver extends BroadcastReceiver {
         } catch (JSONException e) {
             e.printStackTrace();
         }
+        startLocationService(context);
+    }
+
+    @SuppressLint("MissingPermission")
+    private void startLocationService(Context context) {
+        FusedLocationProviderClient fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(context);
+        LocationRequest locationRequestBackground = LocationRequest.create().setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);
+        locationRequestBackground.setFastestInterval(120000);//2m
+        locationRequestBackground.setInterval(600000);//5m
+        fusedLocationProviderClient.requestLocationUpdates(locationRequestBackground, getGeofencePendingIntent(context));
     }
 
     private void registerFences(Context context){
