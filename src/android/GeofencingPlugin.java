@@ -40,6 +40,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import android.util.Log;
 import java.util.Date;
 
 /**
@@ -66,7 +67,7 @@ public class GeofencingPlugin extends CordovaPlugin {
         LocationRequest locationRequest = LocationRequest.create().setPriority(LocationRequest.PRIORITY_LOW_POWER);
 
         locationRequestBackground.setFastestInterval(120000);//2m
-        locationRequestBackground.setInterval(600000);//5m
+        locationRequestBackground.setInterval(600000);//10m
 
         LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder().addLocationRequest(locationRequest);
 

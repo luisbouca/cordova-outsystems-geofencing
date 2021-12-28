@@ -28,9 +28,10 @@ public class BootReceiver extends BroadcastReceiver {
 
     private final String sharedPreferencesDB = "com.outsystems.geofencing.geofence";
     List<Geofence> geofenceList;
+    private final String TAG = "GeofencePluginService";
+
     @Override
     public void onReceive(Context context, Intent intent) {
-        geofenceList = new ArrayList<>();
         if ((ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) || ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             // TODO: Consider calling
             //    ActivityCompat#requestPermissions
@@ -41,6 +42,8 @@ public class BootReceiver extends BroadcastReceiver {
             // for ActivityCompat#requestPermissions for more details.
             return;
         }
+
+        geofenceList = new ArrayList<>();
         SharedPreferences preferences = context.getApplicationContext().getSharedPreferences(sharedPreferencesDB,Context.MODE_PRIVATE);
         try {
             JSONArray fences = new JSONArray(preferences.getString("fences","[]"));
@@ -48,6 +51,7 @@ public class BootReceiver extends BroadcastReceiver {
                 JSONObject fence = fences.getJSONObject(i);
                 addFence(fence.getDouble("lat"),fence.getDouble("lon"), (float) fence.getDouble("radius"),fence.getLong("dur"),fence.getString("id"));
             }
+            LocationServices.getGeofencingClient(context).removeGeofences(getGeofencePendingIntent(context));
             registerFences(context);
         } catch (JSONException e) {
             e.printStackTrace();
@@ -60,7 +64,8 @@ public class BootReceiver extends BroadcastReceiver {
         FusedLocationProviderClient fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(context);
         LocationRequest locationRequestBackground = LocationRequest.create().setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);
         locationRequestBackground.setFastestInterval(120000);//2m
-        locationRequestBackground.setInterval(600000);//5m
+        locationRequestBackground.setInterval(600000);//10m
+        fusedLocationProviderClient.removeLocationUpdates(getGeofencePendingIntent(context));
         fusedLocationProviderClient.requestLocationUpdates(locationRequestBackground, getGeofencePendingIntent(context));
     }
 
@@ -83,7 +88,6 @@ public class BootReceiver extends BroadcastReceiver {
             // for ActivityCompat#requestPermissions for more details.
             return;
         }
-
         LocationServices.getGeofencingClient(context).addGeofences(geofenceRequest, getGeofencePendingIntent(context));
     }
 
