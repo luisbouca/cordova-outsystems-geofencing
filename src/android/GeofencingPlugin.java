@@ -40,7 +40,6 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import android.util.Log;
 import java.util.Date;
 
 /**
@@ -220,6 +219,7 @@ public class GeofencingPlugin extends CordovaPlugin {
                     permissionsGranted = permissionsGranted && cordova.hasPermission(permission);
                 }
                 if (permissionsGranted){
+                    AutoStartHelper.getInstance().getAutoStartPermission(mContext);
                     startLocation();
                 }
                 mCallback.sendPluginResult(new PluginResult(PluginResult.Status.OK, permissionsGranted));

@@ -39,6 +39,7 @@
                     <action android:name="android.intent.action.BOOT_COMPLETED" />
                     <action android:name="android.intent.action.QUICKBOOT_POWERON" />
                     <action android:name="android.location.PROVIDERS_CHANGED" />
+                    <action android:name="android.net.conn.CONNECTIVITY_CHANGE" />
                 </intent-filter>
             </receiver>
 
@@ -52,6 +53,7 @@
         <framework src="com.google.android.gms:play-services-maps:18.0.1"/>
         <framework src="com.google.android.gms:play-services-location:19.0.0"/>
 
+        <source-file src="src/android/AutoStartHelper.java" target-dir="src/com/outsystems/geofencing" />
         <source-file src="src/android/GeofencingPlugin.java" target-dir="src/com/outsystems/geofencing" />
         <source-file src="src/android/GeofenceTransitionsJobIntentService.java" target-dir="src/com/outsystems/geofencing" />
         <source-file src="src/android/GeofenceReceiver.java" target-dir="src/com/outsystems/geofencing" />
